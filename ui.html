@@ -159,22 +159,16 @@
       <label for="corner-radius">Corner Radius: 10px</label>
     </div>
   </fieldset>
-  <!-- <p>Choose the properties:</p>
-  <div>
-    <div class="property flex row space-between">
-      <span>Checkbox</span>
-      <span>Atributo: valor</span>
-    </div>
-        <div class="property flex row space-between">
-      <span>Checkbox</span>
-      <span>Atributo: valor</span>
-    </div>
-    <div class="property flex row space-between">
-      <span>Checkbox</span>
-      <span>Atributo: valor</span>
-    </div>
-  </div> -->
-  <button>Aplicar</button>
+  <button id="apply">Aplicar</button>
+
+  <script>
+    const applyButton = document.getElementById("apply")
+    
+    applyButton.onclick = () => {
+      applyButton.textContent = "Banana"
+      parent.postMessage({pluginMessage: "Hi!"}, '*')
+    }
+  </script>
 </body>
 </html>
 
