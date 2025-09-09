@@ -1,20 +1,49 @@
-// n esquecer de esvaziar
-var properties: {[key: string]: {}} = {}
+/**
+ * falta padding, alignItems e fontName
+ */
+
+// tirar redundancia de PaintProperties
+// criar algo relacionado a SimpleMixed
+
+type RGB255 = {
+  r: number;
+  g: number;
+  b: number;
+}
 
 enum CanBeAnnotated {
-    "COMPONENT" = "COMPONENT",
-    "COMPONENT_SET" = "COMPONENT_SET",
-    "ELLIPSE" = "ELLIPSE",
-    "FRAME" = "FRAME",
-    "INSTANCE" = "INSTANCE",
-    "LINE" = "LINE",
-    "POLYGON" = "POLYGON",
-    "RECTANGLE" = "RECTANGLE",
-    "STAR" = "STAR",
-    "TEXT" = "TEXT",
-    "VECTOR" = "VECTOR"
+  "COMPONENT" = "COMPONENT",
+  "COMPONENT_SET" = "COMPONENT_SET",
+  "ELLIPSE" = "ELLIPSE",
+  "FRAME" = "FRAME",
+  "INSTANCE" = "INSTANCE",
+  "LINE" = "LINE",
+  "POLYGON" = "POLYGON",
+  "RECTANGLE" = "RECTANGLE",
+  "STAR" = "STAR",
+  "TEXT" = "TEXT",
+  "VECTOR" = "VECTOR"
 };
 
+enum WeirdProperties {
+  "fills" = "fills",
+  "strokeWeight" = "strokeWeight",
+  "textStyleId" = "textStyleId",
+  "fontSize" = "fontSize",
+  "fontWeight" = "fontWeight",
+  "lineHeight" = "lineHeight",
+  "letterSpacing" = "letterSpacing",
+  "cornerRadius" = "cornerRadius",
+  "padding" = "padding",
+  "strokes" = "strokes", 
+  "effects" = "effects",
+  "fontName" = "fontName",
+  "mainComponent" = "mainComponent"
+}
+
+
+// n esquecer de esvaziar
+var properties: {[key: string]: {}} = {}
 
 type AnnotationNode = ComponentNode | ComponentSetNode | EllipseNode | FrameNode 
 | InstanceNode | LineNode | PolygonNode | RectangleNode | StarNode | TextNode | VectorNode
@@ -37,7 +66,6 @@ const SharedProperties: (keyof AnnotationNode)[] = [
   "opacity"
 ];
 
-// fontName!!
 const TextProperties: (keyof TextNode)[] = [
   "textStyleId",
   "textAlignHorizontal",
@@ -64,6 +92,13 @@ const LayoutNodeProperties: (keyof LayoutNode)[] = [
   "itemSpacing",
 ]
 
+const PaddingProperties: (keyof LayoutNode)[] = [
+  "paddingBottom",
+  "paddingLeft",
+  "paddingRight",
+  "paddingTop"
+]
+
 const InstanceNodeProperty: keyof InstanceNode = "mainComponent"
 const CorneredNodeProperty: keyof CorneredNode = "cornerRadius"
 
@@ -80,7 +115,6 @@ figma.on("selectionchange", () => {
         case CanBeAnnotated.COMPONENT:
           const componentNode = selectedNode as ComponentNode
           addSharedProperties(componentNode)
-
           break
         case CanBeAnnotated.COMPONENT_SET:
           const componentSetNode = selectedNode as ComponentSetNode
@@ -108,15 +142,12 @@ figma.on("selectionchange", () => {
           break
         case CanBeAnnotated.TEXT:
           const textNode = selectedNode as TextNode
-          addSharedProperties(textNode)
-          addTextProperties(textNode)
-          addGridLayoutProperties(textNode)
+          // addSharedProperties(textNode)
+          // addTextProperties(textNode)
+          // addGridLayoutProperties(textNode)
           break
         case CanBeAnnotated.VECTOR:
           const vectorNode = selectedNode as VectorNode
-          break
-        default:
-          // nunca chega aqui, mas por costume vou deixar
           break
       }
     }
@@ -127,8 +158,240 @@ figma.ui.onmessage = (msg: string) => {
   console.log(msg)
 }
 
-// aaa...
-// tem q tratar o caso do TextNode
+function RGBtoRGB255(r: number, g: number, b: number) {
+  let rgb255: RGB255 = {r: 0, g: 0, b: 0};
+  rgb255.r = Math.trunc(r * 255)
+  rgb255.r = Math.trunc(g * 255)
+  rgb255.r = Math.trunc(b * 255)
+
+  return rgb255;
+}
+
+// eu poderia deixar todas as funções como addProperty (overloading), mas prefiro deixar assim pra melhorar a leitura
+function addFillsProperty(propertiesMap: Map<string, any>, fills: MinimalFillsMixin["fills"]) {
+  if(fills !== figma.mixed) {
+    // só entra se tiver apenas um fill, então posso pegar só o primeiro valor e vai dar certo
+    let fillValue;
+    let opacity = fills[0].opacity
+    let fill = fills[0]
+
+    switch(fill.type) {
+      case "SOLID":
+        let rgbColor = (fill as SolidPaint).color
+        let rgb255Color = RGBtoRGB255(rgbColor.r, rgbColor.g, rgbColor.b)
+        fillValue = `rgb(${rgb255Color.r}, ${rgb255Color.g}, ${rgb255Color.b})`
+        break
+      case "GRADIENT_LINEAR":
+        fillValue = "Linear Gradient"
+        break
+      case "GRADIENT_RADIAL":
+        fillValue = "Radial Gradient"
+        break
+      case "GRADIENT_ANGULAR":
+        fillValue = "Angular Gradient"
+        break
+      case "GRADIENT_DIAMOND":
+        fillValue = "Diamond Gradient"
+        break
+      case "IMAGE":
+        fillValue = "Image"
+        break
+      case "VIDEO":
+        fillValue = "Video"
+        break
+      case "PATTERN":
+        fillValue = "Pattern"
+    }
+
+    if(opacity && opacity < 1)
+      fillValue += " - " + (opacity *= 100).toFixed(0)
+    
+    propertiesMap.set("fills", fillValue)
+  } else {
+    propertiesMap.set("fills", "Multiple")
+  }
+}
+
+function addStrokeWeightProperty(propertiesMap: Map<string, any>, strokeWeight: MinimalStrokesMixin["strokeWeight"]) {
+  if(strokeWeight !== figma.mixed) {
+    propertiesMap.set("strokeWeight", strokeWeight)
+  } else {
+    propertiesMap.set("strokeWeight", "Mixed")
+  }
+}
+
+function addTextStyleIdProperty(propertiesMap: Map<string, any>, textStyleId: string | typeof figma.mixed) {
+  if(textStyleId !== figma.mixed) {
+    propertiesMap.set("textStyleId", textStyleId)
+  } else {
+    propertiesMap.set("textStyleId", "Mixed")
+  }
+}
+
+function addFontSizeProperty(propertiesMap: Map<string, any>, fontSize: number | typeof figma.mixed) {
+  if(fontSize !== figma.mixed) {
+    propertiesMap.set("fontSize", fontSize)
+  } else {
+    propertiesMap.set("fontSize", "Mixed")
+  }
+}
+
+function addFontWeightProperty(propertiesMap: Map<string, any>, fontWeight: number | typeof figma.mixed) {  
+  if(fontWeight !== figma.mixed) {
+    propertiesMap.set("fontWeight", fontWeight)
+  } else {
+    propertiesMap.set("fontSize", "Mixed")
+  }
+}
+
+function addLineHeightProperty(propertiesMap: Map<string, any>, lineHeight: NonResizableTextMixin["lineHeight"]) {
+  if(lineHeight !== figma.mixed) {
+    let lineHeightValue;
+
+    switch(lineHeight.unit) {
+      case "PIXELS":
+        lineHeightValue = `${lineHeight.value}px`
+        break
+      case "PERCENT":
+        lineHeightValue = `${lineHeight.value}%`
+        break 
+      case "AUTO":
+        lineHeightValue = "Auto"
+        break
+    }
+
+    propertiesMap.set("lineHeight", lineHeightValue)
+  } else {
+    propertiesMap.set("lineHeight", "Mixed")
+  }
+}
+
+// repetir algumas vezes n faz mal, vai
+function addLetterSpacingProperty(propertiesMap: Map<string, any>, letterSpacing: BaseNonResizableTextMixin["letterSpacing"]) {
+  if(letterSpacing !== figma.mixed) {
+    let letterSpacingValue;
+
+    switch(letterSpacing.unit) {
+      case "PIXELS":
+        letterSpacingValue = `${letterSpacing.value}px`
+      case "PERCENT":
+        letterSpacingValue = `${letterSpacing.value}%`
+    }
+
+    propertiesMap.set("letterSpacing", letterSpacingValue)
+  } else {
+    propertiesMap.set("letterSpacing", "Mixed")
+  }
+}
+
+function addCornerRadiusProperty(propertiesMap: Map<string, any>, cornerRadius: CornerMixin["cornerRadius"]) {
+  if(cornerRadius !== figma.mixed) {
+    propertiesMap.set("cornerRadius", cornerRadius)
+  } else {
+    propertiesMap.set("cornerRadius", "Mixed")
+  }
+}
+
+// PaintProperty
+function addStrokesProperty(propertiesMap: Map<string, any>, strokes: MinimalStrokesMixin["strokes"]) {
+  if(strokes.length == 1) {
+    // só entra se tiver apenas um fill, então posso pegar só o primeiro valor e vai dar certo
+    let strokeValue;
+    let opacity = strokes[0].opacity
+    let fill = strokes[0]
+
+    switch(fill.type) {
+      case "SOLID":
+        let rgbColor = (fill as SolidPaint).color
+        let rgb255Color = RGBtoRGB255(rgbColor.r, rgbColor.g, rgbColor.b)
+        strokeValue = `rgb(${rgb255Color.r}, ${rgb255Color.g}, ${rgb255Color.b})`
+        break
+      case "GRADIENT_LINEAR":
+        strokeValue = "Linear Gradient"
+        break
+      case "GRADIENT_RADIAL":
+        strokeValue = "Radial Gradient"
+        break
+      case "GRADIENT_ANGULAR":
+        strokeValue = "Angular Gradient"
+        break
+      case "GRADIENT_DIAMOND":
+        strokeValue = "Diamond Gradient"
+        break
+      case "IMAGE":
+        strokeValue = "Image"
+        break
+      case "VIDEO":
+        strokeValue = "Video"
+        break
+      case "PATTERN":
+        strokeValue = "Pattern"
+    }
+
+    if(opacity && opacity < 1)
+      strokeValue += " - " + (opacity *= 100).toFixed(0)
+    
+    propertiesMap.set("strokes", strokeValue)
+  } else {
+    propertiesMap.set("strokes", "Multiple")
+  }
+}
+
+function addEffectsProperty(propertiesMap: Map<string, any>, effects: BlendMixin["effects"]) {
+  if(effects.length == 1) {
+    let effect = effects[0]
+    let effectValue;
+
+    switch(effect.type) {
+      case "DROP_SHADOW":
+        effectValue = "Shadow"
+      case "INNER_SHADOW":
+        effectValue = "Inner shadow"
+      case "LAYER_BLUR":
+        effectValue = "Layer blur"
+      case "BACKGROUND_BLUR":
+        effectValue = "Background blur"
+      case "NOISE":
+        effectValue = "Noise blur"
+      case "TEXTURE":
+        effectValue = "Texture"
+      case "GLASS":
+        effectValue = "Glass"
+    }
+
+    propertiesMap.set("effects", effectValue)
+  } else {
+    propertiesMap.set("effects", "Multiple")
+  } 
+}
+
+function addFontNameProperty(propertiesMap: Map<string, any>, fontName: BaseNonResizableTextMixin["fontName"]) {
+  if(fontName !== figma.mixed) {
+    propertiesMap.set("fontFamily", fontName.family)
+    propertiesMap.set("fontStyle", fontName.style)
+  } else {
+    propertiesMap.set("fontFamily", "Mixed")
+    propertiesMap.set("fontStyle", "Mixed")
+  }
+}
+
+function addMainComponentProperty(propertiesMap: Map<string, any>, mainComponent: ComponentNode | null) {
+    if(mainComponent) {
+      propertiesMap.set("mainComponent", mainComponent.name)
+    }
+}
+
+// ?
+// function addAlignItemsProperty() {
+  
+// }
+
+// ?
+// function addPaddingProperty() {
+
+// }
+
+// WIP
 function addProperty(propertiesMap: Map<string, any>, property: string, value: any) {
   if(value instanceof Array) {
       if(value.length > 0)
@@ -159,6 +422,16 @@ function addTextProperties(node: TextNode) {
   let textProperties: Map<string, any> = new Map()
 
   for(const prop of TextProperties) {
+    if(prop == "fontName") {
+      if(node.fontName !== figma.mixed) {
+        textProperties.set("fontFamily", node.fontName.family)
+        textProperties.set("fontStyle", node.fontName.style)
+      } else {
+        textProperties.set("fontFamily", node.fontName.description)
+        textProperties.set("fontStyle", node.fontName.description)
+      }
+    }
+
     addProperty(textProperties, prop, node[prop])
   }
 
